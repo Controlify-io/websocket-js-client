@@ -1,0 +1,14 @@
+{
+  "name": "controlifyClient",
+  "version": "0.0.1",
+  "description": "Node / JS controlify client",
+  "main": "client.js",
+  "scripts": {
+    "start": "node client.js"
+  },
+  "author": "Andrew Wilson",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "ws": "^4.0.0"
+  }
+}
