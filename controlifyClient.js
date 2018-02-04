@@ -8,6 +8,8 @@ module.exports = class ControlifyClient {
 		this.handshakeDone = false;
 		this.handshakeStage = 0;
 
+		this.messageQueue = new Promise.resolve();
+
 		this.handlers = {
 			pin: 'pin',
 		};
@@ -33,39 +35,61 @@ module.exports = class ControlifyClient {
 		this.debug = Boolean(options.debug);
 
 		if(optionErrors.length) {
-			this.exit('Initiallisation errors --\n  ' + optionErrors.join('\n  '), 1);
+			this.exit(`Initiallisation errors --\n  ${optionErrors.join('\n  ')}`, 1);
 			return;
 		}
 
 		this.ws.on('message', this.processMessage);
+		if(this.debug) {
+			this.ws.on('open', this.showDebug('Socket open'));
+			this.ws.on('ping', this.showDebug('Socket ping'));
+		}
 	}
 
 	processMessage(message) {
 		if(this.handshakeDone) {
-			console.log(message);
-			message.split("\n").forEach((cmd) => {
-				let cmdParts = cmd.split(' ');
-				if(cmdParts[0] === 'pause') {
-					// do a pause
-				}
-				else if(typeof this.handlers[cmdParts[0]] === 'string') {
-					try {
-						execSync(this.handlers[cmdParts[0]] + ' ' + cmdParts.slice(1).join(' '));
-					}
-					catch (err) {
-						console.log(`Handler error [${cmdParts[0]}]: ${err.message}`);
-					}
-				}
-				else { console.log(`Error: no handler for ${cmdParts[0]}`); }
+			if(this.debug) { console.log(`Received: ${message.replace('\n', '\\n')}`); }
+			message.split('\n').forEach((cmd) => {
+				if(this.debug) { console.log(`Queueing: ${cmd}`); }
+				this.commandQueue = this.commandQueue.then(() => { this.processCommand(cmd); });
 			});
 		}
 		else {
 			this.handshake(message);
-			return;
+		}
+	}
+
+	processCommand(cmd) {
+		if(this.debug) { console.log(`Processing command: ${cmd}`); }
+		let cmdParts = cmd.split(' ');
+		if(cmdParts[0] === 'pause') {
+			let ms = parseInt(cmdParts[1], 10);
+			if(!isNaN(ms)) {
+				return new Promise((resolve, _reject) => { setTimeout(resolve, ms); });
+			}
+			else {
+				console.log(`Error: invalid value for pause - ${cmdParts[1]}`);
+			}
+		}
+		else if(typeof this.handlers[cmdParts[0]] === 'string') {
+			try {
+				execSync(this.handlers[cmdParts[0]] + ' ' + cmdParts.slice(1).join(' '));
+			}
+			catch (err) {
+				console.log(`Handler error [${cmdParts[0]}]: ${err.message}`);
+			}
+		}
+		else {
+			console.log(`Error: no handler for ${cmdParts[0]}`);
 		}
 	}
 
 	handshake(message) {
+		if(this.debug) {
+			console.log(`Handshake stage ${this.handshakeStage}`);
+			console.log(`Got: ${message}`);
+		}
+
 		switch(this.handshakeStage) {
 			case 0:
 				if(message.substr(0, 20) !== 'controlify.io server') {
@@ -82,11 +106,14 @@ module.exports = class ControlifyClient {
 				this.handshakeStage = 1;
 				break;
 			case 1:
-				if(message == 'ok') { /* all good, do nothing */ }
+				if(message == 'ok') { if(this.debug) { console.log('ok handshake response'); } }
 				else if(message.substr(0, 11) === 'deprecated ') { console.log(`Warning: ${message}`); }
-				else if(message.substr(0, 12) === 'unsupported ') { this.exit(`Error: ${message}`); }
+				else if(message.substr(0, 12) === 'unsupported ') {
+					this.exit(`Error: ${message}`, 1);
+					return;
+				}
 				else {
-					this.exit('Unrecognised handshake response form server', 1);
+					this.exit('Unrecognised handshake response from server', 1);
 					return;
 				}
 				this.ws.send('ok');
@@ -109,5 +136,9 @@ module.exports = class ControlifyClient {
 		this.exitCode = code;
 
 		if(code) { throw new Error(`Error ${code}: ${message}`); }
+	}
+
+	showDebug(message) {
+		return function () { console.log(message); };
 	}
 };

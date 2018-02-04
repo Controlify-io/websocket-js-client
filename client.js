@@ -34,14 +34,6 @@ try {
 }
 catch (err) { console.log('Failed to read config from ' + configFile); }
 
-////////////////////
-// Connect websocket
-////////////////////
-let serverUrl = 'ws://controlify.io/server';
-if(typeof argv.serverUrl === 'string') { serverUrl = argv.serverUrl; }
-else if(typeof fileConfig.serverurl === 'string') { serverUrl = fileConfig.serverurl; }
-const ws = new WebSocket(serverUrl);
-
 /////////////////////
 // Get client options
 /////////////////////
@@ -60,6 +52,15 @@ for(let opt in clientOptions) {
 	if(typeof argv[opt] !== 'undefined') { clientOptions[opt] = argv[opt]; }
 	else if(typeof fileConfig[opt.toLowerCase()] !== 'undefined') { clientOptions[opt] = fileConfig[opt.toLowerCase()]; }
 }
+
+////////////////////
+// Connect websocket
+////////////////////
+let serverUrl = 'ws://controlify.io/server';
+if(typeof argv.serverUrl === 'string') { serverUrl = argv.serverUrl; }
+else if(typeof fileConfig.serverurl === 'string') { serverUrl = fileConfig.serverurl; }
+if(clientOptions.debug) { console.log(`Opening websocket to ${serverUrl}`); }
+const ws = new WebSocket(serverUrl);
 
 ///////////////
 // Start client
