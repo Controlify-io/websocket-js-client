@@ -1,3 +1,4 @@
+"use strict"
 const WebSocket = require('ws');
 const ControlifyClient = require('./controlifyClient');
 const fs = require('fs');
@@ -5,12 +6,12 @@ const fs = require('fs');
 const argvOpts = {
 	boolean: ['debug', 'help'],
 	alias: {
-		config: ['c', 'config'],
+		config: ['c'],
 		serverUrl: ['u', 'serverurl'],
 		apiKey: ['k', 'apikey'],
 		unitId: ['i', 'unitid'],
 		unitSpec: ['s', 'unitspec'],
-		debug: ['d', 'debug'],
+		debug: ['d'],
 		help: ['h', 'help'],
 	}
 };
@@ -20,7 +21,6 @@ if(argv.help) {
 	showHelp();
 	process.exit(0);
 }
-
 
 ///////////////////
 // Load config file
@@ -38,7 +38,7 @@ catch (err) { console.log('Failed to read config from ' + configFile); }
 // Get client options
 /////////////////////
 const getUnitId = () => 'unitId'; // Generate from mac address etc?
-const getUnitSpec = () => 'unitSpec'; // Probe for umber of io pins etc
+const getUnitSpec = () => 'unitSpec'; // Probe for number of io pins etc
 
 let clientOptions = {
 	apiKey: '',

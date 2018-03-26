@@ -1,4 +1,7 @@
-const { execSync } = require('child_process');
+"use strict"
+//const { execSync } = require('child_process');
+const cp = require('child_process');
+const execSync = cp.execSync;
 
 module.exports = class ControlifyClient {
 	constructor(ws, options) {
@@ -8,10 +11,10 @@ module.exports = class ControlifyClient {
 		this.handshakeDone = false;
 		this.handshakeStage = 0;
 
-		this.messageQueue = new Promise.resolve();
+		this.commandQueue = Promise.resolve();
 
 		this.handlers = {
-			pin: 'pin',
+			pin: 'pi-pin',
 		};
 
 		let optionErrors = [];
@@ -39,8 +42,10 @@ module.exports = class ControlifyClient {
 			return;
 		}
 
-		this.ws.on('message', this.processMessage);
+		this.ws.on('message', this.processMessage.bind(this));
+		this.ws.on('close', this.close.bind(this));
 		if(this.debug) {
+			console.log(`Message handler set. WS ready state ${this.ws.readyState}`);
 			this.ws.on('open', this.showDebug('Socket open'));
 			this.ws.on('ping', this.showDebug('Socket ping'));
 		}
@@ -51,7 +56,7 @@ module.exports = class ControlifyClient {
 			if(this.debug) { console.log(`Received: ${message.replace('\n', '\\n')}`); }
 			message.split('\n').forEach((cmd) => {
 				if(this.debug) { console.log(`Queueing: ${cmd}`); }
-				this.commandQueue = this.commandQueue.then(() => { this.processCommand(cmd); });
+				this.commandQueue = this.commandQueue.then(() => { return this.processCommand(cmd); });
 			});
 		}
 		else {
@@ -65,7 +70,13 @@ module.exports = class ControlifyClient {
 		if(cmdParts[0] === 'pause') {
 			let ms = parseInt(cmdParts[1], 10);
 			if(!isNaN(ms)) {
-				return new Promise((resolve, _reject) => { setTimeout(resolve, ms); });
+				if(this.debug) console.log(`Pausing for ${ms} ms`);
+				return new Promise((resolve, _reject) => {
+					setTimeout(() => {
+						if(this.debug) console.log('Done a pause');
+						resolve();
+					}, ms);
+				});
 			}
 			else {
 				console.log(`Error: invalid value for pause - ${cmdParts[1]}`);
@@ -73,7 +84,8 @@ module.exports = class ControlifyClient {
 		}
 		else if(typeof this.handlers[cmdParts[0]] === 'string') {
 			try {
-				execSync(this.handlers[cmdParts[0]] + ' ' + cmdParts.slice(1).join(' '));
+				console.log('Would do: ' + this.handlers[cmdParts[0]] + ' ' + cmdParts.slice(1).join(' '));
+				//execSync(this.handlers[cmdParts[0]] + ' ' + cmdParts.slice(1).join(' '));
 			}
 			catch (err) {
 				console.log(`Handler error [${cmdParts[0]}]: ${err.message}`);
@@ -126,16 +138,18 @@ module.exports = class ControlifyClient {
 		}
 	}
 
-	close() {
-		this.exit('Client exiting normally', 0);
+	close(num, reason) {
+		let exitMsg = `Websocket closed [${num}]`;
+		if(reason) exitMsg += ` - ${reson}`;
+		this.exit(exitMsg, 0);
 	}
 
 	exit(message, code) {
-		this.ws.close();
-		console.log(message);
+		try { this.ws.close(); } catch(err) { /* Do nothing */ }
 		this.exitCode = code;
 
-		if(code) { throw new Error(`Error ${code}: ${message}`); }
+		if(code) { throw new Error(`${code} - ${message}`); }
+		else console.log(message);
 	}
 
 	showDebug(message) {

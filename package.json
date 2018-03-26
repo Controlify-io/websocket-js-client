@@ -9,6 +9,7 @@
   "author": "Andrew Wilson",
   "license": "GPL-3.0-only",
   "dependencies": {
+    "minimist": "^1.2.0",
     "ws": "^4.0.0"
   }
 }
