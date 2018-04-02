@@ -2,6 +2,9 @@
 //const cp = require('child_process');
 //const execSync = cp.execSync;
 
+const MAX_LOCK_TRY = 20;
+const LOCK_WAIT = 500;
+
 module.exports = class ControlifyClient {
 	constructor(ws, options) {
 		this.ws = ws;
@@ -10,7 +13,7 @@ module.exports = class ControlifyClient {
 		this.handshakeDone = false;
 		this.handshakeStage = 0;
 
-		//this.commandQueue = Promise.resolve();
+		this.pinLocks = [];
 
 		this.handlers = {
 			pin: 'pi-pin',
@@ -53,8 +56,24 @@ module.exports = class ControlifyClient {
 	processMessage(message) {
 		if(this.handshakeDone) {
 			let commandQueue = Promise.resolve();
+			let lockPins = [];
 			if(this.debug) { console.log(`Received: ${message.replace('\n', '\\n')}`); }
-			message.split('\n').forEach((cmd) => {
+
+			let cmds = message.split('\n');
+			let pinReg = /^pin (\d+)/;
+
+			cmds.forEach((cmd) => {
+				let pinMatches = cmd.match(pinReg);
+				if(pinMatches) { lockPins[parseInt(pinMatches[1])] = true; }
+			});
+			lockPins = Object.keys(lockPins);
+
+			if(lockPins.length) {
+				lockPins.reverse().forEach((lock) => { cmds.unshift(`lock ${lock}`); });
+				cmds.push(`unlock ${lockPins.join(',')}`);
+			}
+
+			cmds.forEach((cmd) => {
 				if(this.debug) { console.log(`Queueing: ${cmd}`); }
 				commandQueue = commandQueue.then(() => { return this.processCommand(cmd); });
 			});
@@ -67,7 +86,18 @@ module.exports = class ControlifyClient {
 	processCommand(cmd) {
 		if(this.debug) { console.log(`Processing command: ${cmd}`); }
 		let cmdParts = cmd.split(' ');
-		if(cmdParts[0] === 'pause') {
+		if(cmdParts[0] === 'lock') {
+			let pin = parseInt(cmdParts[1], 10);
+			if(!isNaN(pin)) {
+				return new Promise((resolve, reject) => {
+					this.tryLock(pin, MAX_LOCK_TRY, resolve, reject);
+				});
+			}
+			else {
+				console.log(`Error: invalid value for pin lock - ${cmdParts[1]}`);
+			}
+		}
+		else if(cmdParts[0] === 'pause') {
 			let ms = parseInt(cmdParts[1], 10);
 			if(!isNaN(ms)) {
 				if(this.debug) { console.log(`Pausing for ${ms} ms`); }
@@ -90,6 +120,9 @@ module.exports = class ControlifyClient {
 			catch (err) {
 				console.log(`Handler error [${cmdParts[0]}]: ${err.message}`);
 			}
+		}
+		else if(cmdParts[0] === 'unlock') {
+			this.unlock(cmdParts[1]);
 		}
 		else {
 			console.log(`Error: no handler for ${cmdParts[0]}`);
@@ -137,6 +170,25 @@ module.exports = class ControlifyClient {
 				this.exit('Call to handshake() after handshake finished', 1);
 				return;
 		}
+	}
+
+	tryLock(pin, triesLeft, resolve, reject) {
+		if(this.debug) { console.log(`Trying to get lock for pin ${pin} (${triesLeft} tries left)`); }
+
+		if(!triesLeft) {
+			if(this.debug) { console.log(`Failed to get lock for pin ${pin}`); }
+			reject();
+		}
+		else if(!this.pinLocks[pin]) {
+			this.pinLocks[pin] = true;
+			if(this.debug) { console.log(`Got lock for  pin ${pin}`); }
+			resolve();
+		}
+		else { setTimeout(() => { this.tryLock(pin, triesLeft - 1, resolve, reject); }, LOCK_WAIT); }
+	}
+
+	unlock(pins) {
+		pins.split(',').forEach((pin) => { this.pinLocks[pin] = false; });
 	}
 
 	close(num, reason) {
