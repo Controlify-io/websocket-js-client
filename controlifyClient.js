@@ -108,7 +108,8 @@ module.exports = class ControlifyClient {
 					this.exit('Unrecognised handshake from server', 1);
 					return;
 				}
-				// The last part of the server message should be a semver number -- check this and exit if we can't talk to this version
+				// The last part of the server message should be a semver number
+				// check this and exit if we can't talk to this version
 				this.ws.send(
 					'controlify.io client ' +
 					this.clientVersion + ' ' +
