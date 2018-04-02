@@ -1,7 +1,6 @@
-"use strict"
-//const { execSync } = require('child_process');
-const cp = require('child_process');
-const execSync = cp.execSync;
+"use strict";
+//const cp = require('child_process');
+//const execSync = cp.execSync;
 
 module.exports = class ControlifyClient {
 	constructor(ws, options) {
@@ -70,10 +69,10 @@ module.exports = class ControlifyClient {
 		if(cmdParts[0] === 'pause') {
 			let ms = parseInt(cmdParts[1], 10);
 			if(!isNaN(ms)) {
-				if(this.debug) console.log(`Pausing for ${ms} ms`);
+				if(this.debug) { console.log(`Pausing for ${ms} ms`); }
 				return new Promise((resolve, _reject) => {
 					setTimeout(() => {
-						if(this.debug) console.log('Done a pause');
+						if(this.debug) { console.log('Done a pause'); }
 						resolve();
 					}, ms);
 				});
@@ -140,7 +139,7 @@ module.exports = class ControlifyClient {
 
 	close(num, reason) {
 		let exitMsg = `Websocket closed [${num}]`;
-		if(reason) exitMsg += ` - ${reson}`;
+		if(reason) { exitMsg += ` - ${reason}`; }
 		this.exit(exitMsg, 0);
 	}
 
@@ -149,7 +148,7 @@ module.exports = class ControlifyClient {
 		this.exitCode = code;
 
 		if(code) { throw new Error(`${code} - ${message}`); }
-		else console.log(message);
+		else { console.log(message); }
 	}
 
 	showDebug(message) {

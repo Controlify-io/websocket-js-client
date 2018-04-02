@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 const WebSocket = require('ws');
 const ControlifyClient = require('./controlifyClient');
 const fs = require('fs');
