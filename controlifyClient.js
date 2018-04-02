@@ -10,7 +10,7 @@ module.exports = class ControlifyClient {
 		this.handshakeDone = false;
 		this.handshakeStage = 0;
 
-		this.commandQueue = Promise.resolve();
+		//this.commandQueue = Promise.resolve();
 
 		this.handlers = {
 			pin: 'pi-pin',
@@ -52,10 +52,11 @@ module.exports = class ControlifyClient {
 
 	processMessage(message) {
 		if(this.handshakeDone) {
+			let commandQueue = Promise.resolve();
 			if(this.debug) { console.log(`Received: ${message.replace('\n', '\\n')}`); }
 			message.split('\n').forEach((cmd) => {
 				if(this.debug) { console.log(`Queueing: ${cmd}`); }
-				this.commandQueue = this.commandQueue.then(() => { return this.processCommand(cmd); });
+				commandQueue = commandQueue.then(() => { return this.processCommand(cmd); });
 			});
 		}
 		else {
